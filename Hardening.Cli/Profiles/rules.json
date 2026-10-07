@@ -192,8 +192,8 @@
     "title": "Built-in Administrator Account Must Be Disabled",
     "ruleType": "LocalUserProperty",
     "severity": "High",
-    "parameters": {
-      "userName": "Administrator",
+    "Parameters": {
+      "relativeIdentifier": "500",
       "property": "Enabled",
       "expectedValue": "False"
     }
@@ -203,8 +203,8 @@
     "title": "Guest Account Must Be Disabled",
     "ruleType": "LocalUserProperty",
     "severity": "High",
-    "parameters": {
-      "userName": "Guest",
+    "Parameters": {
+      "relativeIdentifier": "501",
       "property": "Enabled",
       "expectedValue": "False"
     }
@@ -215,9 +215,9 @@
     "ruleType": "LocalGroupMembership",
     "severity": "Critical",
     "parameters": {
-      "groupName": "Administrators",
-      "allowedMembers": [
-        "Administrator"
+      "groupSid": "S-1-5-32-544",
+      "allowedLocalAccountRids": [
+        "500"
       ]
     }
   }

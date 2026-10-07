@@ -12,22 +12,32 @@ public class LocalGroupMembershipHandler : IRuleHandler
         RuleDefinition rule,
         List<Evidence> evidences)
     {
-        var groupName =
-            GetStringParameter(rule, "groupName");
+        var groupSid =
+            GetStringParameter(
+                rule,
+                "groupSid");
 
-        var allowedMembers =
-            GetStringListParameter(rule, "allowedMembers");
+        var allowedLocalAccountRids =
+            GetStringListParameter(
+                rule,
+                "allowedLocalAccountRids");
 
-        var groupNameEvidence =
+        var allowedMemberSids =
+            GetStringListParameter(
+                rule,
+                "allowedMemberSids",
+                required: false);
+
+        var groupSidEvidence =
             evidences.FirstOrDefault(e =>
                 e.Target == "WindowsLocalGroup" &&
-                e.Property == "Name" &&
+                e.Property == "SID" &&
                 string.Equals(
                     e.Value?.ToString(),
-                    groupName,
+                    groupSid,
                     StringComparison.OrdinalIgnoreCase));
 
-        if (groupNameEvidence == null)
+        if (groupSidEvidence == null)
         {
             return new Finding
             {
@@ -36,19 +46,48 @@ public class LocalGroupMembershipHandler : IRuleHandler
                 Status = FindingStatus.NotAssessed,
                 Severity = rule.Severity,
                 Expected =
-                    $"Local group '{groupName}' must exist.",
-                Actual =
-                    "Group not found.",
+                    "Required local group must exist.",
+                Actual = "Group not found.",
                 Description =
-                    $"Local group '{groupName}' was not found."
+                    $"Local group with SID '{groupSid}' was not found."
             };
         }
 
-        // The group evidence itself carries the group ID.
-        // Members reference that ID through ParentId.
-        var groupId = groupNameEvidence.Id;
+        var groupId =
+            groupSidEvidence.ParentId;
 
-        var members =
+        if (string.IsNullOrWhiteSpace(groupId))
+        {
+            return new Finding
+            {
+                RuleId = rule.Id,
+                Title = rule.Title,
+                Status = FindingStatus.Error,
+                Severity = rule.Severity,
+                Expected =
+                    "Local group evidence must have a parent group identifier.",
+                Actual = "",
+                Description =
+                    $"Group SID evidence for '{groupSid}' has no parent group identifier.",
+                EvidenceIds =
+                    new List<string>
+                    {
+                        groupSidEvidence.Id
+                    }
+            };
+        }
+
+        var groupNameEvidence =
+            evidences.FirstOrDefault(e =>
+                e.Id == groupId &&
+                e.Target == "WindowsLocalGroup" &&
+                e.Property == "Name");
+
+        var groupName =
+            groupNameEvidence?.Value?.ToString()
+            ?? $"Group SID {groupSid}";
+
+        var memberNameEvidences =
             evidences
                 .Where(e =>
                     e.Target == "WindowsLocalGroupMember" &&
@@ -56,55 +95,150 @@ public class LocalGroupMembershipHandler : IRuleHandler
                     e.ParentId == groupId)
                 .ToList();
 
+        var members =
+            memberNameEvidences
+                .Select(nameEvidence =>
+                {
+                    var memberSidEvidence =
+                        evidences.FirstOrDefault(e =>
+                            e.Target == "WindowsLocalGroupMember" &&
+                            e.Property == "SID" &&
+                            e.ParentId == nameEvidence.Id);
+
+                    return new MemberIdentity
+                    {
+                        NameEvidence = nameEvidence,
+                        SidEvidence = memberSidEvidence
+                    };
+                })
+                .ToList();
+
+        var allowedRids =
+            new HashSet<string>(
+                allowedLocalAccountRids,
+                StringComparer.OrdinalIgnoreCase);
+
+        var allowedSids =
+            new HashSet<string>(
+                allowedMemberSids,
+                StringComparer.OrdinalIgnoreCase);
+
+        // Resolve local account RIDs to their actual machine-specific SIDs.
+        var allowedLocalAccountSids =
+            evidences
+                .Where(e =>
+                    e.Target == "WindowsLocalAccount" &&
+                    e.Property == "RelativeIdentifier" &&
+                    e.Value != null &&
+                    allowedRids.Contains(
+                        e.Value.ToString() ?? string.Empty))
+                .SelectMany(ridEvidence =>
+                {
+                    var userId = ridEvidence.ParentId;
+
+                    if (string.IsNullOrWhiteSpace(userId))
+                        return Enumerable.Empty<string>();
+
+                    return evidences
+                        .Where(e =>
+                            e.Target == "WindowsLocalAccount" &&
+                            e.Property == "SID" &&
+                            e.ParentId == userId &&
+                            e.Value != null)
+                        .Select(e => e.Value!.ToString()!);
+                })
+                .ToHashSet(
+                    StringComparer.OrdinalIgnoreCase);
+
+        allowedSids.UnionWith(
+            allowedLocalAccountSids);
+
         var unexpectedMembers =
             members
                 .Where(member =>
-                    !allowedMembers.Any(
-                        allowed =>
-                            string.Equals(
-                                allowed,
-                                member.Value?.ToString(),
-                                StringComparison.OrdinalIgnoreCase)))
+                {
+                    var sid =
+                        member.SidEvidence?.Value?.ToString();
+
+                    if (string.IsNullOrWhiteSpace(sid))
+                        return true;
+
+                    return !allowedSids.Contains(sid);
+                })
                 .ToList();
 
         var passed =
             unexpectedMembers.Count == 0;
 
+        var actualMembers =
+            members
+                .Select(member =>
+                {
+                    var name =
+                        member.NameEvidence.Value?.ToString()
+                        ?? "<unknown>";
+
+                    var sid =
+                        member.SidEvidence?.Value?.ToString()
+                        ?? "<SID unavailable>";
+
+                    return $"{name} [{sid}]";
+                })
+                .ToList();
+
+        var allowedDescription =
+            allowedLocalAccountRids.Count == 0 &&
+            allowedMemberSids.Count == 0
+                ? "No members"
+                : string.Join(
+                    ", ",
+                    allowedLocalAccountRids
+                        .Select(rid => $"LocalAccount RID {rid}")
+                        .Concat(
+                            allowedMemberSids
+                                .Select(sid => $"SID {sid}")));
+
         return new Finding
         {
             RuleId = rule.Id,
             Title = rule.Title,
-            Status = passed
-                ? FindingStatus.Pass
-                : FindingStatus.Fail,
+            Status =
+                passed
+                    ? FindingStatus.Pass
+                    : FindingStatus.Fail,
             Severity = rule.Severity,
-
             Expected =
-                allowedMembers.Count == 0
-                    ? "No members"
-                    : $"Allowed members: {string.Join(", ", allowedMembers)}",
-
+                $"Allowed members: {allowedDescription}",
             Actual =
-                members.Count == 0
+                actualMembers.Count == 0
                     ? "No members"
                     : string.Join(
                         ", ",
-                        members.Select(
-                            x => x.Value?.ToString())),
-
+                        actualMembers),
             Description =
                 passed
-                    ? $"All members of local group '{groupName}' are allowed."
-                    : $"Local group '{groupName}' contains {unexpectedMembers.Count} unexpected member(s).",
-
+                    ? $"Local group '{groupName}' ({groupSid}) contains only approved members."
+                    : $"Local group '{groupName}' ({groupSid}) contains {unexpectedMembers.Count} unexpected member(s).",
             EvidenceIds =
                 new[]
                 {
-                    groupNameEvidence.Id
+                    groupSidEvidence.Id
                 }
                 .Concat(
-                    members.Select(
-                        x => x.Id))
+                    groupNameEvidence == null
+                        ? Enumerable.Empty<string>()
+                        : new[] { groupNameEvidence.Id })
+                .Concat(
+                    members.SelectMany(member =>
+                        new[]
+                        {
+                            member.NameEvidence.Id,
+                            member.SidEvidence?.Id
+                        }
+                        .Where(id =>
+                            !string.IsNullOrWhiteSpace(id))
+                        .Cast<string>()))
+                .Distinct()
                 .ToList()
         };
     }
@@ -128,12 +262,16 @@ public class LocalGroupMembershipHandler : IRuleHandler
 
     private static List<string> GetStringListParameter(
         RuleDefinition rule,
-        string name)
+        string name,
+        bool required = true)
     {
         if (!rule.Parameters.TryGetValue(
                 name,
                 out JsonElement value))
         {
+            if (!required)
+                return new List<string>();
+
             throw new InvalidOperationException(
                 $"Parameter '{name}' is missing from rule '{rule.Id}'.");
         }
@@ -146,7 +284,14 @@ public class LocalGroupMembershipHandler : IRuleHandler
 
         return value
             .EnumerateArray()
-            .Select(x => x.GetString() ?? string.Empty)
+            .Select(x =>
+                x.GetString() ?? string.Empty)
             .ToList();
+    }
+
+    private sealed class MemberIdentity
+    {
+        public Evidence NameEvidence { get; set; } = null!;
+        public Evidence? SidEvidence { get; set; }
     }
 }

@@ -39,63 +39,70 @@ public class WindowsLocalAccountCollector : ICollector
             if (user == null)
                 continue;
 
-            var userId = Guid.NewGuid().ToString();
+            // Name evidence acts as the parent/entity anchor
+            // for the remaining properties of this user.
+            var userId =
+                AddEvidence(
+                    evidences,
+                    "WindowsLocalAccount",
+                    "Name",
+                    user.SamAccountName);
 
             AddEvidence(
                 evidences,
-                userId,
-                "Name",
-                user.SamAccountName,
-                "WindowsLocalAccount");
-
-            AddEvidence(
-                evidences,
-                userId,
+                "WindowsLocalAccount",
                 "SID",
                 user.Sid?.Value,
-                "WindowsLocalAccount");
+                userId);
 
             AddEvidence(
                 evidences,
-                userId,
+                "WindowsLocalAccount",
+                "RelativeIdentifier",
+                GetRelativeIdentifier(user.Sid?.Value),
+                userId);
+
+            AddEvidence(
+                evidences,
+                "WindowsLocalAccount",
                 "DisplayName",
                 user.DisplayName,
-                "WindowsLocalAccount");
+                userId);
 
             AddEvidence(
                 evidences,
-                userId,
+                "WindowsLocalAccount",
                 "Enabled",
                 user.Enabled,
-                "WindowsLocalAccount");
+                userId);
 
             AddEvidence(
                 evidences,
-                userId,
+                "WindowsLocalAccount",
                 "Description",
                 user.Description,
-                "WindowsLocalAccount");
+                userId);
 
             AddEvidence(
                 evidences,
-                userId,
+                "WindowsLocalAccount",
                 "PasswordRequired",
                 user.PasswordNotRequired == false,
-                "WindowsLocalAccount");
+                userId);
 
             AddEvidence(
                 evidences,
-                userId,
+                "WindowsLocalAccount",
                 "PasswordNeverExpires",
                 user.PasswordNeverExpires,
-                "WindowsLocalAccount");
+                userId);
 
             AddEvidence(
                 evidences,
-                userId,
+                "WindowsLocalAccount",
                 "LastLogon",
                 user.LastLogon,
-                "WindowsLocalAccount");
+                userId);
         }
     }
 
@@ -117,84 +124,101 @@ public class WindowsLocalAccountCollector : ICollector
             if (group == null)
                 continue;
 
-            var groupId = Guid.NewGuid().ToString();
+            // Name evidence acts as the group entity anchor.
+            var groupId =
+                AddEvidence(
+                    evidences,
+                    "WindowsLocalGroup",
+                    "Name",
+                    group.SamAccountName);
 
             AddEvidence(
                 evidences,
-                groupId,
-                "Name",
-                group.SamAccountName,
-                "WindowsLocalGroup");
-
-            AddEvidence(
-                evidences,
-                groupId,
+                "WindowsLocalGroup",
                 "SID",
                 group.Sid?.Value,
-                "WindowsLocalGroup");
+                groupId);
 
             AddEvidence(
                 evidences,
-                groupId,
+                "WindowsLocalGroup",
                 "Description",
                 group.Description,
-                "WindowsLocalGroup");
+                groupId);
 
             foreach (var member in group.GetMembers())
             {
-                var memberId = Guid.NewGuid().ToString();
+                // Name evidence acts as the member entity anchor.
+                var memberId =
+                    AddEvidence(
+                        evidences,
+                        "WindowsLocalGroupMember",
+                        "Name",
+                        member.SamAccountName,
+                        groupId);
 
                 AddEvidence(
                     evidences,
-                    memberId,
-                    "Name",
-                    member.SamAccountName,
                     "WindowsLocalGroupMember",
-                    groupId);
-
-                AddEvidence(
-                    evidences,
-                    memberId,
                     "SID",
                     member.Sid?.Value,
-                    "WindowsLocalGroupMember",
-                    groupId);
+                    memberId);
 
                 AddEvidence(
                     evidences,
-                    memberId,
+                    "WindowsLocalGroupMember",
                     "ObjectClass",
                     member.StructuralObjectClass,
-                    "WindowsLocalGroupMember",
-                    groupId);
+                    memberId);
 
                 AddEvidence(
                     evidences,
-                    memberId,
+                    "WindowsLocalGroupMember",
                     "PrincipalSource",
                     member.ContextType.ToString(),
-                    "WindowsLocalGroupMember",
-                    groupId);
+                    memberId);
             }
         }
     }
 
-    private static void AddEvidence(
+    private static string AddEvidence(
         List<Evidence> evidences,
-        string id,
+        string target,
         string property,
         object? value,
-        string target,
         string? parentId = null)
     {
-        evidences.Add(new Evidence
+        var evidenceId =
+            Guid.NewGuid().ToString();
+
+        evidences.Add(
+            new Evidence
+            {
+                Id = evidenceId,
+                Collector = nameof(WindowsLocalAccountCollector),
+                Target = target,
+                Property = property,
+                Value = value,
+                ParentId = parentId
+            });
+
+        return evidenceId;
+    }
+
+    private static string? GetRelativeIdentifier(string? sid)
+    {
+        if (string.IsNullOrWhiteSpace(sid))
+            return null;
+
+        var lastSeparator =
+            sid.LastIndexOf('-');
+
+        if (lastSeparator < 0 ||
+            lastSeparator == sid.Length - 1)
         {
-            Id = id,
-            Collector = nameof(WindowsLocalAccountCollector),
-            Target = target,
-            Property = property,
-            Value = value,
-            ParentId = parentId
-        });
+            return null;
+        }
+
+        return sid[(lastSeparator + 1)..];
     }
 }
