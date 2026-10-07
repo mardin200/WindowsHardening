@@ -1,0 +1,225 @@
+[
+  {
+    "id": "WIN-SVC-001",
+    "title": "Windows Firewall Service Must Be Running",
+    "ruleType": "ServiceStatus",
+    "severity": "High",
+    "parameters": {
+      "serviceName": "MpsSvc",
+      "expectedStatus": "Running"
+    }
+  },
+  {
+    "id": "WIN-SVC-002",
+    "title": "Remote Registry Service Must Be Stopped",
+    "ruleType": "ServiceStatus",
+    "severity": "High",
+    "parameters": {
+      "serviceName": "RemoteRegistry",
+      "expectedStatus": "Stopped"
+    }
+  },
+  {
+    "id": "WIN-SVC-003",
+    "title": "Print Spooler Must Be Disabled on Web Servers",
+    "ruleType": "ServiceStatus",
+    "severity": "High",
+    "applicability": {
+      "serverRoles": [
+        "WebServer"
+      ]
+    },
+    "parameters": {
+      "serviceName": "Spooler",
+      "expectedStatus": "Stopped"
+    }
+  },
+  {
+    "id": "WIN-SVC-004",
+    "title": "Windows Time Service Must Be Running",
+    "ruleType": "ServiceStatus",
+    "severity": "Medium",
+    "parameters": {
+      "serviceName": "W32Time",
+      "expectedStatus": "Running"
+    }
+  },
+  {
+    "id": "WIN-SVC-005",
+    "title": "Windows Update Service Must Be Running",
+    "ruleType": "ServiceStatus",
+    "severity": "Medium",
+    "parameters": {
+      "serviceName": "wuauserv",
+      "expectedStatus": "Running"
+    }
+  },
+  {
+    "id": "WIN-SVC-006",
+    "title": "Remote Desktop Services Must Be Running",
+    "ruleType": "ServiceStatus",
+    "severity": "Medium",
+    "parameters": {
+      "serviceName": "TermService",
+      "expectedStatus": "Running"
+    }
+  },
+  {
+    "id": "WIN-SVC-007",
+    "title": "Secondary Logon Service Must Be Stopped",
+    "ruleType": "ServiceStatus",
+    "severity": "Low",
+    "parameters": {
+      "serviceName": "seclogon",
+      "expectedStatus": "Stopped"
+    }
+  },
+  {
+    "id": "WIN-SVC-008",
+    "title": "Windows Event Log Service Must Be Running",
+    "ruleType": "ServiceStatus",
+    "severity": "High",
+    "parameters": {
+      "serviceName": "EventLog",
+      "expectedStatus": "Running"
+    }
+  },
+  {
+    "id": "WIN-FW-001",
+    "title": "Domain Firewall Profile Must Be Enabled",
+    "ruleType": "FirewallProfile",
+    "severity": "High",
+    "parameters": {
+      "profile": "Domain",
+      "property": "Enabled",
+      "expectedValue": "True"
+    }
+  },
+  {
+    "id": "WIN-FW-002",
+    "title": "Private Firewall Profile Must Be Enabled",
+    "ruleType": "FirewallProfile",
+    "severity": "High",
+    "parameters": {
+      "profile": "Private",
+      "property": "Enabled",
+      "expectedValue": "True"
+    }
+  },
+  {
+    "id": "WIN-FW-003",
+    "title": "Public Firewall Profile Must Block Inbound Traffic",
+    "ruleType": "FirewallProfile",
+    "severity": "High",
+    "parameters": {
+      "profile": "Public",
+      "property": "DefaultInboundAction",
+      "expectedValue": "Block"
+    }
+  },
+  {
+    "id": "WIN-REG-001",
+    "title": "User Account Control Must Be Enabled",
+    "ruleType": "RegistryValue",
+    "severity": "High",
+    "parameters": {
+      "queryId": "REG-001",
+      "subKey": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System",
+      "valueName": "EnableLUA",
+      "expectedValue": "1"
+    }
+  },
+  {
+    "id": "WIN-START-001",
+    "title": "Remote Registry Service Startup Type Must Be Disabled",
+    "ruleType": "ServiceStartupType",
+    "severity": "High",
+    "parameters": {
+      "serviceName": "RemoteRegistry",
+      "expectedStartType": "Disabled"
+    }
+  },
+  {
+    "id": "WIN-START-002",
+    "title": "Secondary Logon Service Startup Type Must Be Disabled",
+    "ruleType": "ServiceStartupType",
+    "severity": "Medium",
+    "parameters": {
+      "serviceName": "seclogon",
+      "expectedStartType": "Disabled"
+    }
+  },
+  {
+    "id": "WIN-START-003",
+    "title": "Windows Event Log Service Startup Type Must Be Automatic",
+    "ruleType": "ServiceStartupType",
+    "severity": "High",
+    "parameters": {
+      "serviceName": "EventLog",
+      "expectedStartType": "Automatic"
+    }
+  },
+  {
+    "id": "WIN-FWR-001",
+    "title": "Enabled Inbound Allow Rules on Public Profile Must Be Limited",
+    "ruleType": "FirewallRule",
+    "severity": "High",
+    "parameters": {
+      "profile": "Public",
+      "direction": "Inbound",
+      "action": "Allow",
+      "enabled": "True",
+      "maxMatches": 0
+    }
+  },
+  {
+    "id": "WIN-FWR-002",
+    "title": "Inbound TCP 3389 Must Not Be Allowed on Public Profile",
+    "ruleType": "FirewallRule",
+    "severity": "High",
+    "parameters": {
+      "profile": "Public",
+      "direction": "Inbound",
+      "action": "Allow",
+      "enabled": "True",
+      "protocol": "TCP",
+      "localPort": "3389",
+      "maxMatches": 0
+    }
+  },
+  {
+    "id": "WIN-USER-001",
+    "title": "Built-in Administrator Account Must Be Disabled",
+    "ruleType": "LocalUserProperty",
+    "severity": "High",
+    "parameters": {
+      "userName": "Administrator",
+      "property": "Enabled",
+      "expectedValue": "False"
+    }
+  },
+  {
+    "id": "WIN-USER-002",
+    "title": "Guest Account Must Be Disabled",
+    "ruleType": "LocalUserProperty",
+    "severity": "High",
+    "parameters": {
+      "userName": "Guest",
+      "property": "Enabled",
+      "expectedValue": "False"
+    }
+  },
+  {
+    "id": "WIN-GROUP-001",
+    "title": "Local Administrators Group Must Contain Only Approved Members",
+    "ruleType": "LocalGroupMembership",
+    "severity": "Critical",
+    "parameters": {
+      "groupName": "Administrators",
+      "allowedMembers": [
+        "Administrator"
+      ]
+    }
+  }
+
+]

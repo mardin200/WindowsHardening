@@ -1,0 +1,49 @@
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Build output
+**/bin/
+**/obj/
+
+# Test results
+TestResults/
+*.trx
+
+# NuGet
+packages/
+
+# Rider / ReSharper
+.idea/
+_ReSharper*/
+*.DotSettings.user
+
+# Logs
+*.log
+
+# Local configuration / secrets
+.env
+.env.*
+!.env.example
+
+# Publish output
+publish/
+
+# Temporary files
+*.tmp
+*.temp
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Coverage
+coverage/
+*.coverage
+*.coveragexml
+
+# Generated documentation
+docs/_site/
